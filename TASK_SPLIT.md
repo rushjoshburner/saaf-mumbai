@@ -27,7 +27,6 @@ src/app/api/report/upvote/route.ts   → Issue + resolution upvotes
 src/app/api/leaderboard/route.ts     → Leaderboard data
 src/app/api/report-card/route.ts     → Weekly report card data
 src/app/api/cron/weekly/route.ts     → Monday cron job
-src/app/admin/                       → Moderator login + dashboard
 src/app/layout.tsx                   → Root layout (you own this)
 src/lib/supabase.ts                  → Supabase client
 src/lib/r2.ts                        → Cloudflare R2 upload helper
@@ -47,7 +46,7 @@ vercel.json                          → Cron job config
 - Vercel KV store
 - All API routes with rate limiting
 - PWA service worker
-- Moderator auth via Supabase magic link
+- Moderator queue table in Supabase (reviewed via Supabase dashboard directly — no custom UI in v1)
 
 ### Branch naming for you
 - `feature/supabase-setup`
