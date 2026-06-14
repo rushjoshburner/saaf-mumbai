@@ -78,6 +78,6 @@ The `/docs` folder contains all product documents. If your code conflicts with t
 |------|---------|
 | `docs/PRD-v1.2.docx` | Product requirements — what the platform does and why |
 | `docs/TRD-v1.0.docx` | Technical requirements — how it is built and why |
-| `docs/DESIGN-SYSTEM.md` | Visual design and component library |
+| `docs/DESIGN.md` | Visual design and component library |
 | `docs/APPFLOW.docx` | Screen-by-screen flow (to be created) |
 | `docs/BACKEND-SCHEMA.docx` | Database schema and API contracts (to be created) |
