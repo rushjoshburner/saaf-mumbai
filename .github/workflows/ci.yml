@@ -1,0 +1,28 @@
+name: CI
+
+# Runs on every Pull Request into main. If the app does not build,
+# the PR is blocked from merging — this is the safety net that keeps
+# broken code off the shared main branch.
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build the app
+        run: npm run build
