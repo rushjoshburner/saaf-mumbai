@@ -4,6 +4,25 @@ Records product/technical decisions that change or clarify the PRD/TRD. Newest f
 
 ---
 
+### D-004 — Surge detection at ward level; no neighbourhood boundaries in v1
+**Date:** 2026-06-14
+**Supersedes/clarifies:** PRD §4.6 (surge defined per-neighbourhood) and §7.1 (neighbourhoods.json dependency)
+
+Research into the actual open data found **no official or reliable neighbourhood-boundary dataset for Mumbai** (only ward, pincode, and slum-cluster layers exist publicly). Therefore in v1:
+- **Surge detection runs at WARD level** (5+ report groups in a ward within 24h) using the verified BMC ward boundaries, instead of per-neighbourhood.
+- The `neighbourhoods` table is **dropped**. `report_groups.neighbourhood` remains as an optional free-text display label that can be filled later via OSM reverse-geocoding (free) or left null → shown as "Unknown".
+
+**Verified data sources** (DataMeet, CC-BY-SA):
+- Wards (24): `BMC_Wards.geojson` — `properties.name` = ward letter, `properties.gid` = id
+- MP constituencies (6): `india_pc_2019_simplified.geojson` — filter `st_name='Maharashtra'` + Mumbai PCs; fields `pc_no`, `pc_name`, `wikidata_qid`
+- MLA constituencies (36): `India_AC.shp` — **shapefile, must convert to GeoJSON** and filter Mumbai; datameet notes accuracy caveats (verify Maharashtra)
+- BMC outer boundary: derive by dissolving the ward polygons (no separate file)
+- MLA/MP **names, parties, X handles**: not in any boundary file — manual sourcing (PRD §7.1)
+
+**Why:** Build against data that actually exists rather than a dataset that doesn't. Ward-level surge is meaningful and uses verified boundaries.
+
+---
+
 ### D-003 — Resolved pins stay visible (green) for 72 hours
 **Date:** 2026-06-14
 **Supersedes:** PRD §4.2.2 (which hid resolved pins immediately, behind a toggle)

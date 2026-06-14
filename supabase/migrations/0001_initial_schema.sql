@@ -25,42 +25,53 @@ create table bmc_boundary (
   constraint single_row check (id = 1)
 );
 
+-- Source: datameet BMC_Wards.geojson — properties.name is the ward LETTER
+-- (A, B, C ... 24 wards), properties.gid is a numeric id. There is no rich
+-- ward name in the source, so ward_name is optional (add area labels manually).
 create table wards (
   id        uuid primary key default gen_random_uuid(),
-  ward_code text unique not null,
-  ward_name text not null,
+  ward_code text unique not null,   -- from properties.name (e.g. 'A', 'H/E')
+  gid       int,                    -- from properties.gid
+  ward_name text,                   -- optional human label (e.g. 'Colaba'), manual
   geom      geography(MultiPolygon, 4326) not null
 );
 
+-- Source: datameet India_AC shapefile (convert .shp -> GeoJSON, filter to the
+-- 36 Mumbai constituencies). The boundary file gives the AC number + name only;
+-- the sitting MLA's name/party/handle are sourced manually (PRD 7.1).
 create table mla_constituencies (
   id           uuid primary key default gen_random_uuid(),
-  name         text,
-  party        text,
-  constituency text not null,
-  x_handle     text,
+  ac_no        int,                  -- assembly constituency number
+  constituency text not null,        -- AC name
+  name         text,                 -- current MLA name (manual)
+  party        text,                 -- current MLA party (manual)
+  x_handle     text,                 -- MLA X/Twitter handle (manual)
+  wikidata_qid text,                 -- optional, helps look up the rep
   geom         geography(MultiPolygon, 4326) not null
 );
 
+-- Source: datameet india_pc_2019_simplified.geojson — properties pc_no, pc_name,
+-- st_name, wikidata_qid. Filter st_name='Maharashtra' + the 6 Mumbai PCs.
+-- The sitting MP's name/party/handle are sourced manually.
 create table mp_constituencies (
   id           uuid primary key default gen_random_uuid(),
-  name         text,
-  party        text,
-  constituency text not null,
-  x_handle     text,
+  pc_no        int,                  -- from properties.pc_no
+  constituency text not null,        -- from properties.pc_name
+  name         text,                 -- current MP name (manual)
+  party        text,                 -- current MP party (manual)
+  x_handle     text,                 -- MP X/Twitter handle (manual)
+  wikidata_qid text,                 -- from properties.wikidata_qid
   geom         geography(MultiPolygon, 4326) not null
 );
 
-create table neighbourhoods (
-  id        uuid primary key default gen_random_uuid(),
-  name      text not null,
-  ward_code text,
-  geom      geography(MultiPolygon, 4326) not null
-);
+-- NOTE: no `neighbourhoods` table in v1. There is no official neighbourhood
+-- boundary dataset for Mumbai (verified). Surge detection runs at WARD level
+-- instead, and report_groups.neighbourhood is an optional display label that can
+-- be filled later via OSM reverse-geocoding. See docs/DECISIONS.md (D-004).
 
-create index wards_geom_idx              on wards              using gist (geom);
-create index mla_geom_idx                on mla_constituencies using gist (geom);
-create index mp_geom_idx                 on mp_constituencies  using gist (geom);
-create index neighbourhoods_geom_idx     on neighbourhoods     using gist (geom);
+create index wards_geom_idx on wards              using gist (geom);
+create index mla_geom_idx   on mla_constituencies using gist (geom);
+create index mp_geom_idx    on mp_constituencies  using gist (geom);
 
 -- ============================================================
 -- Core report tables
@@ -191,9 +202,10 @@ as $$
   limit 1;
 $$;
 
--- Reverse geocode a point into ward / neighbourhood / MLA / MP.
+-- Reverse geocode a point into ward / MLA / MP. (No neighbourhood lookup —
+-- there is no neighbourhood dataset; that label is filled separately, if at all.)
 create or replace function reverse_geocode(lat double precision, lng double precision)
-returns table (ward_code text, neighbourhood text, mla_id uuid, mp_id uuid)
+returns table (ward_code text, mla_id uuid, mp_id uuid)
 language sql stable
 as $$
   with pt as (
@@ -201,9 +213,22 @@ as $$
   )
   select
     (select w.ward_code from wards w, pt where ST_Covers(w.geom, pt.g) limit 1),
-    (select n.name      from neighbourhoods n, pt where ST_Covers(n.geom, pt.g) limit 1),
     (select m.id        from mla_constituencies m, pt where ST_Covers(m.geom, pt.g) limit 1),
     (select p.id        from mp_constituencies p, pt where ST_Covers(p.geom, pt.g) limit 1);
+$$;
+
+-- Ward-level surge: count of report groups created in a ward in the last 24h.
+-- Used by the surge banner/overlay (PRD 4.6), at ward granularity (see D-004).
+create or replace function ward_surge_counts(threshold int default 5)
+returns table (ward_code text, recent_count bigint)
+language sql stable
+as $$
+  select ward_code, count(*) as recent_count
+  from report_groups
+  where ward_code is not null
+    and first_reported_at >= now() - interval '24 hours'
+  group by ward_code
+  having count(*) >= threshold;
 $$;
 
 -- ============================================================
@@ -216,7 +241,6 @@ alter table bmc_boundary           enable row level security;
 alter table wards                  enable row level security;
 alter table mla_constituencies     enable row level security;
 alter table mp_constituencies      enable row level security;
-alter table neighbourhoods         enable row level security;
 alter table report_groups          enable row level security;
 alter table report_exif            enable row level security;  -- no policy => private
 alter table report_photos          enable row level security;
@@ -230,7 +254,6 @@ create policy public_read on bmc_boundary           for select using (true);
 create policy public_read on wards                  for select using (true);
 create policy public_read on mla_constituencies     for select using (true);
 create policy public_read on mp_constituencies      for select using (true);
-create policy public_read on neighbourhoods         for select using (true);
 create policy public_read on report_groups          for select using (true);
 create policy public_read on report_photos          for select using (true);
 create policy public_read on resolution_submissions for select using (true);

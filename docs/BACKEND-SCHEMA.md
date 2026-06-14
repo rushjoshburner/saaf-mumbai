@@ -108,15 +108,16 @@ Enforces **one vote per person** (D-001, D-002).
 > **Issue upvotes ("I See This Too")** are intentionally simpler — no table. The API increments `report_groups.issue_upvote_count`, and the browser remembers (localStorage) that you already tapped, backed by the per-IP rate limit. Lower stakes, less complexity (D-001).
 
 ### 3.6 Geography / reference tables
-All use `geography(MultiPolygon, 4326)` with a GIST index. Loaded once from `/public/data/*.json`. **Public read:** yes. **Public write:** no.
+All use `geography(MultiPolygon, 4326)` with a GIST index. Loaded once from `/public/data/*.json`. **Public read:** yes. **Public write:** no. Column names below match the **verified source files** (see §6).
 
-| Table | Key columns |
-|-------|-------------|
-| `bmc_boundary` | `id` (single row), `geom` — the geo-fence |
-| `wards` | `id`, `ward_code` (unique), `ward_name`, `geom` (24 rows) |
-| `mla_constituencies` | `id`, `name`, `party`, `constituency`, `x_handle`, `geom` (36 rows) |
-| `mp_constituencies` | `id`, `name`, `party`, `constituency`, `x_handle`, `geom` (6 rows) |
-| `neighbourhoods` | `id`, `name`, `ward_code`, `geom` — for surge detection |
+| Table | Key columns | Rows |
+|-------|-------------|------|
+| `bmc_boundary` | `id` (single row), `geom` — the geo-fence | 1 |
+| `wards` | `ward_code` (= source `name`, the letter), `gid`, `ward_name` (optional), `geom` | 24 |
+| `mla_constituencies` | `ac_no`, `constituency`, `name`/`party`/`x_handle` (manual), `wikidata_qid`, `geom` | 36 |
+| `mp_constituencies` | `pc_no`, `constituency`, `name`/`party`/`x_handle` (manual), `wikidata_qid`, `geom` | 6 |
+
+> **No `neighbourhoods` table in v1** — no neighbourhood boundary dataset exists for Mumbai (verified). Surge runs at ward level via the `ward_surge_counts` function, and `report_groups.neighbourhood` is an optional display label. See `DECISIONS.md` D-004.
 
 ### 3.7 `moderator_queue` — flagged items
 | Column | Type | Notes |
@@ -151,7 +152,8 @@ Called from API routes via `supabase.rpc(...)`. We use the `geography` type so d
 |----------|------|---------|------|
 | `is_within_bmc` | `lat`, `lng` | boolean | `ST_Covers(bmc_boundary.geom, point)` — the hard geo-fence gate |
 | `find_nearby_group` | `lat`, `lng`, `tab`, `radius_metres` | uuid (group id or null) | `ST_DWithin` — finds an existing OPEN group within radius in the same tab (30m grouping) |
-| `reverse_geocode` | `lat`, `lng` | record(`ward_code`, `neighbourhood`, `mla_id`, `mp_id`) | runs `ST_Covers` against each boundary table |
+| `reverse_geocode` | `lat`, `lng` | record(`ward_code`, `mla_id`, `mp_id`) | runs `ST_Covers` against each boundary table |
+| `ward_surge_counts` | `threshold` | rows of (`ward_code`, `recent_count`) | wards with ≥threshold report groups in the last 24h (surge, D-004) |
 
 > Note: this corrects a small inconsistency in the TRD snippets, which mixed `ST_Contains` (geometry, degree-based) with metre-based radii. Using `geography` + `ST_Covers`/`ST_DWithin` makes distances correct in metres.
 
@@ -178,9 +180,17 @@ On a `resolution` upvote, after incrementing: if `resolution_upvote_count >= 2`,
 
 ## 6. What still needs data before this fully works
 
-These come from Teammate 3's `/public/data/` files, loaded into the geography tables:
-- `bmc-boundary.json`, `wards.json` (available from BMC/ECI open data)
-- `mla-lookup.json`, `mp-lookup.json` (names/party/handles need manual sourcing)
-- `neighbourhoods.json`
+**Verified open-data sources** (all DataMeet, CC-BY-SA — confirmed 2026-06-14):
+
+| Target table | Source file | How to prepare it | Source property → column |
+|--------------|-------------|-------------------|--------------------------|
+| `wards` (24) | [`BMC_Wards.geojson`](https://github.com/datameet/Municipal_Spatial_Data/tree/master/Mumbai) | Use directly. Use the **admin** ward file (letters), NOT the 227 electoral prabhags | `name`→`ward_code`, `gid`→`gid` |
+| `mp_constituencies` (6) | [`india_pc_2019_simplified.geojson`](https://github.com/datameet/maps/tree/master/parliamentary-constituencies) | Filter `st_name='Maharashtra'` + the 6 Mumbai PCs | `pc_no`→`pc_no`, `pc_name`→`constituency`, `wikidata_qid`→`wikidata_qid` |
+| `mla_constituencies` (36) | [`India_AC.shp`](https://github.com/datameet/maps/tree/master/assembly-constituencies) | **Convert shapefile → GeoJSON** (mapshaper/ogr2ogr), filter Mumbai's 36. Verify boundaries (datameet notes accuracy caveats) | AC no/name → `ac_no`/`constituency` |
+| `bmc_boundary` (1) | derive | Dissolve/union the 24 ward polygons into one MultiPolygon | — |
+
+**Manual sourcing** (not in any boundary file — PRD §7.1): MLA/MP `name`, `party`, `x_handle`. The `wikidata_qid` (present in the PC file) is a useful key for looking these up.
+
+**Not available:** neighbourhood boundaries — none exist; we use ward-level surge instead (D-004).
 
 Until a boundary is loaded, `reverse_geocode` returns null for that field and the UI shows "Unknown" (PRD §7.2 degradation rules).
