@@ -7,6 +7,16 @@ on:
   pull_request:
     branches: [main]
 
+# Least privilege: the CI token can only read the repo, nothing else.
+permissions:
+  contents: read
+
+# If new commits are pushed to a PR, cancel the older in-progress run
+# instead of piling up — saves wasted minutes and avoids stale results.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     name: build
