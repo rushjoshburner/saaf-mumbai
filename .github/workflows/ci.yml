@@ -36,3 +36,9 @@ jobs:
 
       - name: Build the app
         run: npm run build
+        # Placeholder values so the build can run without real secrets.
+        # The build only needs these to be PRESENT, not valid. Real values
+        # live in .env.local (local) and Vercel env vars (production).
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key-for-build-only
