@@ -161,11 +161,11 @@ Called from API routes via `supabase.rpc(...)`. We use the `geography` type so d
 
 ## 5. API Route Contracts
 
-All under `src/app/api/`. All writes run server-side with the service role and apply `checkRateLimit` first.
+All under `src/app/api/`. All writes run server-side with the service role and apply `checkRateLimit` first (Postgres-backed — `rate_limit_hits` table + `check_rate_limit` function, see migration `0002`; D-005). Photos go to **Supabase Storage** (`report-photos` bucket).
 
 | Route | Method | Body / Params | Does | Limit (per IP/hr) |
 |-------|--------|---------------|------|-------------------|
-| `/api/report` | POST | FormData: `photo`, `lat`, `lng`, `tab`, `subIssue` | rate-limit → geo-fence → find/create group → upload photo to R2 → reverse-geocode → upsert | 5 |
+| `/api/report` | POST | FormData: `photo`, `lat`, `lng`, `tab`, `subIssue` | rate-limit → geo-fence → find/create group → upload photo to Supabase Storage → reverse-geocode → upsert | 5 |
 | `/api/report/[id]` | GET | path `id` | fetch one group + photos for detail page | — |
 | `/api/report/resolve` | POST | FormData: `groupId`, `photo` | rate-limit → validate state → upload → create resolution_submission → status `resolution_submitted` | 3 |
 | `/api/report/upvote` | POST | JSON: `groupId` or `resolutionId`, `type: 'issue' \| 'resolution'` | rate-limit → record vote (dedup by hash) → increment count → auto-resolve at 2 | 10 |
