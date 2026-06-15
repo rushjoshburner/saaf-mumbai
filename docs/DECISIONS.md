@@ -4,6 +4,20 @@ Records product/technical decisions that change or clarify the PRD/TRD. Newest f
 
 ---
 
+### D-005 — Supabase Storage + Postgres rate limiting (no Cloudflare R2 / Vercel KV in v1)
+**Date:** 2026-06-14
+**Supersedes:** TRD §1.1 (Cloudflare R2 for storage, Vercel KV for rate limiting)
+
+For v1 we run everything on the existing Supabase project instead of adding new services:
+- **Photos → Supabase Storage** (bucket `report-photos`, public read, images only, 1MB cap) instead of Cloudflare R2.
+- **Rate limiting → Postgres** (`rate_limit_hits` table + `check_rate_limit` function) instead of Vercel KV.
+
+**Why:** Cloudflare R2 requires a credit card on file even for free usage, which conflicts with the project's no-card / guaranteed-free constraint. Keeping storage and rate limiting in Supabase means **zero new accounts**, no card, and one less moving part. Trade-offs accepted for v1: Supabase Storage free tier is 1GB (~1,250 photos) vs R2's 10GB, and Postgres rate limiting is slightly heavier than Redis — both fine at community-tool scale. Migrate to R2/KV later only if volume demands it.
+
+**Helpers:** `src/lib/storage.ts` (upload), `src/lib/rate-limit.ts` (check + salted IP hash). Migration: `supabase/migrations/0002_rate_limit.sql`.
+
+---
+
 ### D-004 — Surge detection at ward level; no neighbourhood boundaries in v1
 **Date:** 2026-06-14
 **Supersedes/clarifies:** PRD §4.6 (surge defined per-neighbourhood) and §7.1 (neighbourhoods.json dependency)
