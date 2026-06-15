@@ -1,0 +1,5 @@
+# Treat the lockfile as a generated file: GitHub collapses it in diffs and
+# excludes it from language stats. It's still committed (CI needs it and it
+# pins everyone to identical dependency versions) — it just stops cluttering
+# pull requests.
+package-lock.json linguist-generated=true -diff
