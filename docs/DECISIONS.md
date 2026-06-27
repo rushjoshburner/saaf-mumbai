@@ -4,6 +4,20 @@ Records product/technical decisions that change or clarify the PRD/TRD. Newest f
 
 ---
 
+### D-006 — Hand-written service worker instead of Serwist for the PWA
+**Date:** 2026-06-27
+**Supersedes:** TRD §8.1 (Serwist for the PWA service worker)
+
+The project builds with **Turbopack** (Next 16's default). Serwist generates its service worker via a **Webpack** plugin, which Turbopack does not run — so Serwist was a silent no-op (build passed, no `sw.js` produced). Rather than force the whole project onto the slower Webpack build just for the PWA, v1 uses a small hand-written service worker.
+
+- `public/sw.js` — install-time shell precache + runtime caching (API = network-only, pages = network-first, static assets = cache-first), per TRD §8.2 in spirit.
+- `src/app/sw-register.tsx` — registers it on the client.
+- `src/app/manifest.ts` + `public/icon-192.png` / `icon-512.png` (placeholder icons — Varun to replace with branded ones).
+
+**Why:** Keeps the fast Turbopack build, no new build tooling, and still delivers an installable, offline-capable PWA. Revisit Serwist (precaching all build assets) later if richer offline support is needed, or once Serwist supports Turbopack.
+
+---
+
 ### D-005 — Supabase Storage + Postgres rate limiting (no Cloudflare R2 / Vercel KV in v1)
 **Date:** 2026-06-14
 **Supersedes:** TRD §1.1 (Cloudflare R2 for storage, Vercel KV for rate limiting)

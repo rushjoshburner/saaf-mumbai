@@ -1,6 +1,7 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Barlow_Condensed, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
+import ServiceWorkerRegister from "./sw-register";
 
 const barlowCondensed = Barlow_Condensed({
   variable: "--font-barlow-condensed",
@@ -19,6 +20,10 @@ export const metadata: Metadata = {
   description: "Report and track civic issues across Mumbai.",
 };
 
+export const viewport: Viewport = {
+  themeColor: "#0d2a6e",
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -29,7 +34,10 @@ export default function RootLayout({
       lang="en"
       className={`${barlowCondensed.variable} ${ibmPlexMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        {children}
+        <ServiceWorkerRegister />
+      </body>
     </html>
   );
 }
